@@ -1,0 +1,900 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#7A0019">
+    <title>Bulldog Blocks - Tristan Wiehoff</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #7A0019 0%, #FFB71B 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .game-container {
+            position: relative;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+        }
+
+        #gameCanvas {
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 10px;
+            background: rgba(0, 0, 0, 0.2);
+            box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .ui-panel {
+            position: absolute;
+            top: 20px;
+            right: -200px;
+            width: 180px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 15px;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .score-display {
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .next-piece {
+            color: white;
+            font-size: 14px;
+            margin-bottom: 10px;
+        }
+
+        .controls {
+            color: white;
+            font-size: 12px;
+            line-height: 1.4;
+            margin-top: 15px;
+        }
+
+        .start-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 10px;
+            z-index: 10;
+        }
+
+        .start-button {
+            padding: 15px 30px;
+            font-size: 18px;
+            font-weight: bold;
+            color: white;
+            background: linear-gradient(45deg, #7A0019, #FFB71B);
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .start-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+        }
+
+        .game-title {
+            color: white;
+            font-size: 24px;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            z-index: 20;
+            display: none;
+        }
+
+        .restart-button {
+            margin-top: 15px;
+            padding: 10px 20px;
+            background: linear-gradient(45deg, #7A0019, #FFB71B);
+            color: white;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .audio-controls {
+            margin: 15px 0;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+        }
+
+        .volume-control {
+            margin: 10px 0;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .volume-slider {
+            width: 100%;
+            height: 5px;
+            -webkit-appearance: none;
+            appearance: none;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 5px;
+            outline: none;
+        }
+
+        .volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 15px;
+            height: 15px;
+            background: #FFB71B;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .audio-button {
+            width: 100%;
+            padding: 8px;
+            margin-top: 5px;
+            background: linear-gradient(45deg, #7A0019, #FFB71B);
+            color: white;
+            border: none;
+            border-radius: 15px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+
+        .audio-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <a href="index.html" class="back-button" style="position: fixed; top: 20px; left: 20px; z-index: 1000;">← Back to Home</a>
+    <footer style="position: fixed; bottom: 0; left: 0; right: 0; background: rgba(44, 62, 80, 0.9); color: white; text-align: center; padding: 0.5rem; font-size: 0.9rem;">
+        <p>&copy; 2025 Tristan Wiehoff. All rights reserved.</p>
+        <p>Email: <a href="mailto:triwiehoff@gmail.com" class="footer-link">triwiehoff@gmail.com</a></p>
+        <p><a href="https://www.umdmis.com" target="_blank" class="footer-link">UMD MIS Website</a></p>
+    </footer>
+    <div class="game-container">
+        <canvas id="gameCanvas" width="400" height="600"></canvas>
+        
+        <div class="ui-panel">
+            <div class="score-display">Score: <span id="score">0</span></div>
+            <div class="score-display">Lines: <span id="lines">0</span></div>
+            <div class="score-display">Level: <span id="level">1</span></div>
+            <div class="next-piece">Next Piece:</div>
+            <canvas id="nextCanvas" width="80" height="80" style="border: 1px solid rgba(255,255,255,0.3); border-radius: 5px; background: rgba(0,0,0,0.3);"></canvas>
+            <div class="audio-controls">
+                <audio id="gameMusic" src="media/8bitgrindHB.mp3" type="audio/mp3" loop preload="auto">
+                    Your browser does not support the audio element.
+                </audio>
+                <div class="volume-control">
+                    <label for="volumeSlider" style="color: white;">Volume:</label>
+                    <input type="range" id="volumeSlider" min="0" max="100" value="50" class="volume-slider">
+                </div>
+                <button id="toggleAudio" class="audio-button">🔇 Music Off</button>
+            </div>
+            <div class="controls">
+                <div>← → Move</div>
+                <div>↓ Soft Drop</div>
+                <div>↑ Rotate</div>
+                <div>Space Hard Drop</div>
+                <div>P Pause</div>
+            </div>
+        </div>
+
+        <div class="start-screen" id="startScreen">
+            <div class="game-title">🐶 Bulldog Blocks 🐶</div>
+            <button class="start-button" id="startButton">Start Game</button>
+        </div>
+
+        <div class="game-over" id="gameOver">
+            <h2>Game Over!</h2>
+            <p>Final Score: <span id="finalScore">0</span></p>
+            <button class="restart-button" id="restartButton">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        // Matter.js setup
+        const { Engine, Render, World, Bodies, Body, Events, Runner, Composite } = Matter;
+
+        // Game variables
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const nextCanvas = document.getElementById('nextCanvas');
+        const nextCtx = nextCanvas.getContext('2d');
+        
+        let engine, world, render, runner;
+        let gameRunning = false;
+        let currentPiece = null;
+        let nextPiece = null;
+        let score = 0;
+        let lines = 0;
+        let level = 1;
+        let dropTime = 0;
+        let lastTime = 0;
+        let gameSpeed = 1000; // milliseconds
+        let pieceSettleTime = 0;
+
+        // Game constants
+        const BLOCK_SIZE = 30; // Increased from 20 to 30
+        const BOARD_WIDTH = Math.floor(canvas.width / BLOCK_SIZE);
+        const BOARD_HEIGHT = Math.floor(canvas.height / BLOCK_SIZE);
+        
+        // UMD Bulldog colors
+        const COLORS = [
+            '#7A0019', // UMD Maroon
+            '#FFB71B', // UMD Gold
+            '#5B0013', // Dark Maroon
+            '#FFD700', // Bright Gold
+            '#8B0000', // Dark Red
+            '#DAA520', // Golden Brown
+            '#800000'  // Deep Maroon
+        ];
+
+        // Tetris pieces
+        const PIECES = [
+            {
+                shape: [
+                    [1, 1, 1, 1]
+                ],
+                color: 0
+            },
+            {
+                shape: [
+                    [1, 1],
+                    [1, 1]
+                ],
+                color: 1
+            },
+            {
+                shape: [
+                    [0, 1, 0],
+                    [1, 1, 1]
+                ],
+                color: 2
+            },
+            {
+                shape: [
+                    [0, 0, 1],
+                    [1, 1, 1]
+                ],
+                color: 3
+            },
+            {
+                shape: [
+                    [1, 0, 0],
+                    [1, 1, 1]
+                ],
+                color: 4
+            },
+            {
+                shape: [
+                    [0, 1, 1],
+                    [1, 1, 0]
+                ],
+                color: 5
+            },
+            {
+                shape: [
+                    [1, 1, 0],
+                    [0, 1, 1]
+                ],
+                color: 6
+            }
+        ];
+
+        // Initialize physics engine
+        function initPhysics() {
+            engine = Engine.create();
+            world = engine.world;
+            engine.gravity.y = 0.8; // Moderate gravity for jello effect
+            
+            // Create boundaries
+            const boundaries = [
+                // Bottom
+                Bodies.rectangle(canvas.width / 2, canvas.height + 10, canvas.width, 20, { 
+                    isStatic: true,
+                    render: { fillStyle: 'transparent' }
+                }),
+                // Left
+                Bodies.rectangle(-10, canvas.height / 2, 20, canvas.height, { 
+                    isStatic: true,
+                    render: { fillStyle: 'transparent' }
+                }),
+                // Right
+                Bodies.rectangle(canvas.width + 10, canvas.height / 2, 20, canvas.height, { 
+                    isStatic: true,
+                    render: { fillStyle: 'transparent' }
+                })
+            ];
+            
+            World.add(world, boundaries);
+
+            // Create renderer
+            render = Render.create({
+                canvas: canvas,
+                engine: engine,
+                options: {
+                    width: canvas.width,
+                    height: canvas.height,
+                    wireframes: false,
+                    background: 'transparent',
+                    showVelocity: false,
+                    showAngleIndicator: false,
+                    showCollisions: false,
+                    showSeparations: false,
+                    showAxes: false,
+                    showPositions: false,
+                    showBroadphase: false,
+                    showBounds: false
+                }
+            });
+
+            runner = Runner.create();
+        }
+
+        // Create jello block
+        function createJelloBlock(x, y, color) {
+            const block = Bodies.rectangle(
+                x * BLOCK_SIZE + BLOCK_SIZE / 2,
+                y * BLOCK_SIZE + BLOCK_SIZE / 2,
+                BLOCK_SIZE * 0.9,
+                BLOCK_SIZE * 0.9,
+                {
+                    render: {
+                        fillStyle: COLORS[color],
+                        strokeStyle: 'rgba(255, 255, 255, 0.3)',
+                        lineWidth: 2
+                    },
+                    restitution: 0.6, // High bounce for jello effect
+                    friction: 0.3,
+                    frictionAir: 0.01,
+                    density: 0.001,
+                    chamfer: { radius: 3 } // Rounded corners
+                }
+            );
+            
+            return block;
+        }
+
+        // Create tetris piece
+        function createPiece(pieceType, x = Math.floor(BOARD_WIDTH / 2) - 1, y = -2) {
+            const piece = PIECES[pieceType];
+            const blocks = [];
+            
+            for (let py = 0; py < piece.shape.length; py++) {
+                for (let px = 0; px < piece.shape[py].length; px++) {
+                    if (piece.shape[py][px]) {
+                        const block = createJelloBlock(x + px, y + py, piece.color);
+                        block.pieceId = Date.now() + Math.random(); // Unique ID for piece tracking
+                        blocks.push(block);
+                    }
+                }
+            }
+            
+            World.add(world, blocks);
+            return blocks;
+        }
+
+        // Draw next piece
+        function drawNextPiece() {
+            nextCtx.clearRect(0, 0, nextCanvas.width, nextCanvas.height);
+            
+            if (nextPiece !== null) {
+                const piece = PIECES[nextPiece];
+                const blockSize = 15;
+                const offsetX = (nextCanvas.width - piece.shape[0].length * blockSize) / 2;
+                const offsetY = (nextCanvas.height - piece.shape.length * blockSize) / 2;
+                
+                for (let y = 0; y < piece.shape.length; y++) {
+                    for (let x = 0; x < piece.shape[y].length; x++) {
+                        if (piece.shape[y][x]) {
+                            nextCtx.fillStyle = COLORS[piece.color];
+                            nextCtx.fillRect(
+                                offsetX + x * blockSize,
+                                offsetY + y * blockSize,
+                                blockSize - 1,
+                                blockSize - 1
+                            );
+                        }
+                    }
+                }
+            }
+        }
+
+        // Check for completed lines
+        function checkLines() {
+            const lineHeight = BLOCK_SIZE;
+            const completedLines = [];
+            
+            // Check each row from bottom to top
+            for (let row = 0; row < BOARD_HEIGHT; row++) {
+                const y = row * lineHeight + lineHeight / 2;
+                const blocksInRow = world.bodies.filter(body => 
+                    Math.abs(body.position.y - y) < lineHeight / 2 && 
+                    body.pieceId !== undefined
+                );
+                
+                if (blocksInRow.length >= BOARD_WIDTH) {
+                    completedLines.push(row);
+                }
+            }
+            
+            // Remove completed lines
+            if (completedLines.length > 0) {
+                completedLines.forEach(row => {
+                    const y = row * lineHeight + lineHeight / 2;
+                    const blocksToRemove = world.bodies.filter(body => 
+                        Math.abs(body.position.y - y) < lineHeight / 2 && 
+                        body.pieceId !== undefined
+                    );
+                    
+                    blocksToRemove.forEach(block => {
+                        World.remove(world, block);
+                    });
+                });
+                
+                // Move blocks above down
+                world.bodies.forEach(body => {
+                    if (body.pieceId !== undefined) {
+                        const bodyRow = Math.floor(body.position.y / lineHeight);
+                        const linesToMove = completedLines.filter(line => line > bodyRow).length;
+                        if (linesToMove > 0) {
+                            Body.translate(body, { x: 0, y: linesToMove * lineHeight });
+                        }
+                    }
+                });
+                
+                // Update score
+                lines += completedLines.length;
+                score += completedLines.length * 100 * level;
+                level = Math.floor(lines / 10) + 1;
+                gameSpeed = Math.max(100, 1000 - (level - 1) * 100);
+                
+                updateUI();
+            }
+        }
+
+        // Update UI
+        function updateUI() {
+            document.getElementById('score').textContent = score;
+            document.getElementById('lines').textContent = lines;
+            document.getElementById('level').textContent = level;
+        }
+
+        // Check if piece has settled
+        function hasPieceSettled(piece) {
+            return piece.every(block => {
+                // Check for low velocity
+                const hasLowVelocity = Math.abs(block.velocity.y) < 0.2 && 
+                                     Math.abs(block.velocity.x) < 0.2 &&
+                                     Math.abs(block.angularVelocity) < 0.1;
+                
+                // Check for collision with ground
+                const isAtBottom = block.position.y > canvas.height - BLOCK_SIZE * 2;
+                
+                // Check for collision with other blocks
+                const collisions = Matter.Query.collides(block, world.bodies.filter(b => 
+                    b !== block && b.pieceId !== undefined && b.isStatic
+                ));
+                const isColliding = collisions.length > 0;
+                
+                return hasLowVelocity && (isAtBottom || isColliding);
+            });
+        }
+
+        // Check for collisions in a specific direction
+        function willCollideWithBlocks(block, offsetX, offsetY) {
+            // Get current piece ID to ignore collisions with blocks in the same piece
+            const currentPieceId = block.pieceId;
+            
+            return world.bodies.some(otherBlock => {
+                // Skip if it's the same block or part of the same piece
+                if (otherBlock === block || otherBlock.pieceId === currentPieceId) return false;
+                // Skip if it's not a game piece
+                if (!otherBlock.pieceId) return false;
+                // Only check static (settled) blocks
+                if (!otherBlock.isStatic) return false;
+                
+                const futureX = block.position.x + offsetX;
+                const futureY = block.position.y + offsetY;
+                
+                const dx = Math.abs(futureX - otherBlock.position.x);
+                const dy = Math.abs(futureY - otherBlock.position.y);
+                
+                // Allow a small overlap for smoother movement
+                return dx < BLOCK_SIZE * 0.9 && dy < BLOCK_SIZE * 0.9;
+            });
+        }
+
+        // Game loop
+        function gameLoop(currentTime) {
+            if (!gameRunning) return;
+            
+            const deltaTime = currentTime - lastTime;
+            lastTime = currentTime;
+            
+            // Spawn new piece if needed
+            if (!currentPiece) {
+                if (nextPiece === null) {
+                    nextPiece = Math.floor(Math.random() * PIECES.length);
+                }
+                currentPiece = createPiece(nextPiece);
+                nextPiece = Math.floor(Math.random() * PIECES.length);
+                drawNextPiece();
+            }
+            
+            // Check if current piece has settled
+            if (currentPiece && hasPieceSettled(currentPiece)) {
+                pieceSettleTime += deltaTime;
+                
+                // Check if piece is at bottom or colliding with other pieces
+                const atBottom = currentPiece.some(block => 
+                    block.position.y > canvas.height - BLOCK_SIZE * 2
+                );
+
+                const isColliding = currentPiece.some(block => {
+                    const collisions = Matter.Query.collides(block, world.bodies);
+                    return collisions.some(collision => {
+                        const otherBody = collision.bodyA === block ? collision.bodyB : collision.bodyA;
+                        return otherBody.isStatic && otherBody.pieceId !== undefined;
+                    });
+                });
+                
+                if (atBottom || isColliding) {
+                    if (pieceSettleTime > 500) { // 500ms delay
+                        // Check if the piece can still move down
+                        const canMoveDown = !currentPiece.some(block => 
+                            willCollideWithBlocks(block, 0, BLOCK_SIZE) ||
+                            block.position.y > canvas.height - BLOCK_SIZE * 2
+                        );
+
+                        if (!canMoveDown) {
+                            // Lock the piece
+                            currentPiece.forEach(block => {
+                                block.isStatic = true;  // Make immobile
+                                block.render.opacity = 0.9;  // Visual feedback
+                                Body.setAngularVelocity(block, 0);  // Stop rotation
+                                Body.setVelocity(block, { x: 0, y: 0 });  // Stop movement
+                                block.isLocked = true;  // Custom property to mark as locked
+                            });
+                            currentPiece = null;
+                            pieceSettleTime = 0;
+                            checkLines();
+                        } else {
+                            pieceSettleTime = 0; // Reset if piece can still move
+                        }
+                    }
+                } else {
+                    pieceSettleTime = 0;  // Reset if not at bottom or colliding
+                }
+            } else {
+                pieceSettleTime = 0;
+            }
+            
+            // Check for game over - only if a settled piece is too high
+            if (currentPiece && hasPieceSettled(currentPiece) && pieceSettleTime > 500) {
+                const pieceTooHigh = currentPiece.some(block => 
+                    block.position.y < BLOCK_SIZE * 4
+                );
+                
+                if (pieceTooHigh) {
+                    gameOver();
+                    return;
+                }
+            }
+            
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Game over
+        function gameOver() {
+            gameRunning = false;
+            Runner.stop(runner);
+            Render.stop(render);
+            document.getElementById('finalScore').textContent = score;
+            document.getElementById('gameOver').style.display = 'block';
+        }
+
+        // Start game
+        function startGame() {
+            // Reset game state
+            if (engine) {
+                World.clear(world);
+                Runner.stop(runner);
+                Render.stop(render);
+            }
+            
+            initPhysics();
+            
+            score = 0;
+            lines = 0;
+            level = 1;
+            gameSpeed = 1000;
+            currentPiece = null;
+            nextPiece = null;
+            pieceSettleTime = 0;
+            
+            updateUI();
+            drawNextPiece();
+            
+            // Hide start screen
+            document.getElementById('startScreen').style.display = 'none';
+            document.getElementById('gameOver').style.display = 'none';
+            
+            // Start physics and game loop
+            Runner.run(runner, engine);
+            Render.run(render);
+            gameRunning = true;
+            lastTime = performance.now();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Controls
+        document.addEventListener('keydown', (e) => {
+            if (!gameRunning || !currentPiece) return;
+            
+            // Only check for settled pieces, not temporary collisions
+            const isSettled = currentPiece.some(block => block.isStatic || block.isLocked);
+
+            // If the piece is settled, don't allow player movement
+            if (isSettled) return;
+            
+            switch(e.key) {
+                case 'ArrowLeft':
+                    // Move left if no collisions
+                    const canMoveLeft = currentPiece.every(block => {
+                        const wouldCollide = willCollideWithBlocks(block, -BLOCK_SIZE, 0);
+                        return block.position.x > BLOCK_SIZE && !wouldCollide;
+                    });
+                    if (canMoveLeft) {
+                        currentPiece.forEach(block => 
+                            Body.translate(block, { x: -BLOCK_SIZE, y: 0 })
+                        );
+                    }
+                    break;
+                    
+                case 'ArrowRight':
+                    // Move right if no collisions
+                    const canMoveRight = currentPiece.every(block => {
+                        const wouldCollide = willCollideWithBlocks(block, BLOCK_SIZE, 0);
+                        return block.position.x < canvas.width - BLOCK_SIZE && !wouldCollide;
+                    });
+                    if (canMoveRight) {
+                        currentPiece.forEach(block => 
+                            Body.translate(block, { x: BLOCK_SIZE, y: 0 })
+                        );
+                    }
+                    break;
+                    
+                case 'ArrowDown':
+                    // Soft drop if no collisions below
+                    const canMoveDown = currentPiece.every(block => {
+                        const wouldCollide = willCollideWithBlocks(block, 0, BLOCK_SIZE);
+                        return block.position.y < canvas.height - BLOCK_SIZE * 2 && !wouldCollide;
+                    });
+                    if (canMoveDown) {
+                        currentPiece.forEach(block => 
+                            Body.translate(block, { x: 0, y: BLOCK_SIZE })
+                        );
+                    }
+                    break;
+                    
+                case 'ArrowUp':
+                    // No rotation after collision
+                    if (!hasCollided) {
+                        currentPiece.forEach(block => 
+                            Body.setAngularVelocity(block, 0.1)
+                        );
+                    }
+                    break;
+                    
+                case ' ':
+                    // Hard drop until collision
+                    e.preventDefault();
+                    let canDrop = true;
+                    while (canDrop) {
+                        canDrop = currentPiece.every(block => {
+                            const wouldCollide = willCollideWithBlocks(block, 0, BLOCK_SIZE);
+                            return block.position.y < canvas.height - BLOCK_SIZE * 2 && !wouldCollide;
+                        });
+                        if (canDrop) {
+                            currentPiece.forEach(block => 
+                                Body.translate(block, { x: 0, y: BLOCK_SIZE })
+                            );
+                        }
+                    }
+                    break;
+                    
+                case 'p':
+                case 'P':
+                    // Pause
+                    if (gameRunning) {
+                        gameRunning = false;
+                        Runner.stop(runner);
+                        Render.stop(render);
+                    } else {
+                        gameRunning = true;
+                        Runner.run(runner, engine);
+                        Render.run(render);
+                        lastTime = performance.now();
+                        requestAnimationFrame(gameLoop);
+                    }
+                    break;
+            }
+        });
+
+        // Audio Controls
+        const gameMusic = document.getElementById('gameMusic');
+        const volumeSlider = document.getElementById('volumeSlider');
+        const toggleAudio = document.getElementById('toggleAudio');
+        let isMusicPlaying = false;
+
+        // Set up audio with more robust initialization
+        function initializeAudio() {
+            gameMusic.loop = true;
+            gameMusic.volume = volumeSlider.value / 100;
+            
+            // Force reload the audio file
+            gameMusic.load();
+            
+            // Log the audio element's properties
+            console.log('Audio element properties:', {
+                src: gameMusic.src,
+                readyState: gameMusic.readyState,
+                paused: gameMusic.paused,
+                volume: gameMusic.volume,
+                loop: gameMusic.loop
+            });
+        }
+
+        // Handle audio loading
+        gameMusic.addEventListener('loadeddata', () => {
+            console.log('Audio file loaded successfully');
+            // Try to play audio on load (browser might block it)
+            try {
+                gameMusic.play().catch(e => {
+                    console.log('Auto-play prevented:', e);
+                });
+            } catch (e) {
+                console.log('Play attempt failed:', e);
+            }
+        });
+        
+        // Handle any audio errors
+        gameMusic.addEventListener('error', (e) => {
+            console.error('Error loading audio file:', {
+                error: e,
+                src: gameMusic.src,
+                networkState: gameMusic.networkState,
+                errorCode: gameMusic.error ? gameMusic.error.code : null
+            });
+        });
+
+        // Initialize audio
+        initializeAudio();
+
+        // Volume slider control
+        volumeSlider.addEventListener('input', (e) => {
+            const volume = e.target.value / 100;
+            gameMusic.volume = volume;
+            // Update button text based on volume
+            updateAudioButtonText();
+        });
+
+        // Toggle audio button
+        toggleAudio.addEventListener('click', () => {
+            if (isMusicPlaying) {
+                gameMusic.pause();
+                isMusicPlaying = false;
+            } else {
+                gameMusic.play();
+                isMusicPlaying = true;
+            }
+            updateAudioButtonText();
+        });
+
+        // Update audio button text
+        function updateAudioButtonText() {
+            if (gameMusic.volume === 0 || !isMusicPlaying) {
+                toggleAudio.textContent = '🔇 Music Off';
+            } else {
+                toggleAudio.textContent = '🔊 Music On';
+            }
+        }
+
+        // Start music when game starts
+        const originalStartGame = startGame;
+        startGame = function() {
+            originalStartGame();
+            if (!isMusicPlaying) {
+                // Make sure audio is ready before playing
+                if (gameMusic.readyState >= 2) {
+                    gameMusic.currentTime = 0; // Start from beginning
+                    gameMusic.play().then(() => {
+                        isMusicPlaying = true;
+                        updateAudioButtonText();
+                    }).catch(e => {
+                        console.error('Failed to play audio:', e);
+                    });
+                } else {
+                    console.log('Audio not ready, waiting for load...');
+                    gameMusic.addEventListener('canplay', () => {
+                        gameMusic.play().then(() => {
+                            isMusicPlaying = true;
+                            updateAudioButtonText();
+                        }).catch(e => {
+                            console.error('Failed to play audio after load:', e);
+                        });
+                    }, { once: true });
+                }
+            }
+        };
+
+        // Pause music when game is paused
+        document.addEventListener('keydown', (e) => {
+            if (e.key.toLowerCase() === 'p') {
+                if (!gameRunning && isMusicPlaying) {
+                    gameMusic.pause();
+                    isMusicPlaying = false;
+                } else if (gameRunning && !isMusicPlaying) {
+                    gameMusic.play();
+                    isMusicPlaying = true;
+                }
+                updateAudioButtonText();
+            }
+        });
+
+        // Event listeners
+        document.getElementById('startButton').addEventListener('click', startGame);
+        document.getElementById('restartButton').addEventListener('click', startGame);
+
+        // Initialize
+        initPhysics();
+    </script>
+</body>
+</html>
